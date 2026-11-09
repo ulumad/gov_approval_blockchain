@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# 虚拟环境
+venv/
+.venv/
+env/
+
+# 环境变量与本地配置
+.env
+.env.*
+
+# 运行时数据（含用户账号密码哈希，禁止提交）
+users.json
+
+# 数据库
+*.db
+*.sqlite3
+
+# 编辑器 / 系统
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

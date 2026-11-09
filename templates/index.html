@@ -1,0 +1,1383 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <!-- 头部 -->
+    <div class="header">
+        <div class="logo">
+            <div class="logo-icon">🏛️</div>
+            <div class="logo-text">
+                <h1>政务审批区块链系统</h1>
+                <p>安全 · 透明 · 高效</p>
+            </div>
+        </div>
+        <div class="user-section">
+            <div class="stage-switcher" id="stageSwitcher">
+                <button class="stage-btn" data-stage="apply">申请</button>
+                <button class="stage-btn" data-stage="review">审核</button>
+                <button class="stage-btn" data-stage="approve">审批</button>
+                <button class="stage-btn" data-stage="archive">归档</button>
+            </div>
+            <div class="user-info">
+                <div class="username" id="currentUsername">加载中...</div>
+                <div class="role" id="currentRole">加载中...</div>
+            </div>
+            <a href="/templates" class="btn btn-secondary">模板管理</a>
+            <a href="/admin" class="btn btn-secondary" id="adminBtn" style="display:none;">用户管理</a>
+            <button class="btn btn-danger" onclick="logout()">登出</button>
+        </div>
+    </div>
+
+    <!-- 区块链信息 -->
+    <div class="blockchain-info">
+        <h3>⛓️ 区块链状态</h3>
+        <div class="info-grid">
+            <div class="info-item">
+                <label>区块高度</label>
+                <value id="chainLength">-</value>
+            </div>
+            <div class="info-item">
+                <label>链完整性</label>
+                <value id="chainValid">-</value>
+            </div>
+            <div class="info-item">
+                <label>最新区块</label>
+                <value id="latestBlock" style="font-size:12px;">-</value>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新建申请 -->
+    <div class="card" id="newApplicationCard" style="display:none;">
+        <h2 class="card-title">📝 新建申请</h2>
+        <form id="applicationForm">
+            <div class="form-group">
+                <label>申请标题</label>
+                <input type="text" class="form-control" id="appTitle" placeholder="请输入申请标题" required>
+            </div>
+            <div class="form-group">
+                <label>选择模板（可选）</label>
+                <select class="form-control" id="appTemplate">
+                    <option value="">不使用模板</option>
+                </select>
+            </div>
+            
+            <!-- 模板预览区域 -->
+            <div id="templatePreviewContainer" style="display:none;">
+                <h4 style="margin-bottom:15px;">📄 模板预览</h4>
+                <div style="border:2px solid #e0e0e0;border-radius:10px;padding:20px;background:#f8f9fa;">
+                    <div id="templatePreview"></div>
+                </div>
+            </div>
+            
+            <!-- 默认内容表单 -->
+            <div id="defaultContentForm" style="margin-top:20px;">
+                <div class="form-group">
+                    <label>申请内容</label>
+                    <textarea class="form-control" id="appContent" placeholder="请输入申请内容详情" required></textarea>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">提交申请并上链</button>
+        </form>
+    </div>
+
+    <!-- 待办事务 -->
+    <div class="card">
+        <h2 class="card-title">📋 待办事务 <span id="pendingCount" style="font-size:14px;color:#666;"></span></h2>
+        <div id="pendingList">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>标题</th>
+                        <th>申请人</th>
+                        <th>当前阶段</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="pendingTableBody">
+                    <tr>
+                        <td colspan="5" style="text-align:center;color:#999;">加载中...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 全部事务 -->
+    <div class="card">
+        <h2 class="card-title">📚 全部事务</h2>
+        <div id="allApplicationsList">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>标题</th>
+                        <th>申请人</th>
+                        <th>当前阶段</th>
+                        <th>状态</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="allAppsTableBody">
+                    <tr>
+                        <td colspan="6" style="text-align:center;color:#999;">加载中...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 历史记录搜索 -->
+    <div class="card">
+        <h2 class="card-title">🔍 历史记录搜索</h2>
+        <div class="search-filters" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:20px;">
+            <div class="form-group" style="margin-bottom:0;">
+                <label>开始时间</label>
+                <input type="datetime-local" class="form-control" id="searchStartTime">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label>结束时间</label>
+                <input type="datetime-local" class="form-control" id="searchEndTime">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label>操作人</label>
+                <input type="text" class="form-control" id="searchOperator" placeholder="输入用户名">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label>流程阶段</label>
+                <select class="form-control" id="searchStage">
+                    <option value="">全部阶段</option>
+                    <option value="apply">申请</option>
+                    <option value="review">审核</option>
+                    <option value="approve">审批</option>
+                    <option value="archive">归档</option>
+                </select>
+            </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:20px;">
+            <button class="btn btn-primary" onclick="searchHistory()">搜索</button>
+            <button class="btn btn-secondary" onclick="resetSearch()">重置</button>
+        </div>
+        <div id="searchResults">
+            <div style="margin-bottom:10px;color:#666;">
+                共 <span id="searchResultCount">0</span> 条记录
+            </div>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>区块高度</th>
+                        <th>时间</th>
+                        <th>类型</th>
+                        <th>操作人</th>
+                        <th>流程阶段</th>
+                        <th>详情</th>
+                    </tr>
+                </thead>
+                <tbody id="searchResultsBody">
+                    <tr>
+                        <td colspan="6" style="text-align:center;color:#999;">请点击搜索查看历史记录</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 处理事务模态框 -->
+<div class="modal" id="processModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">处理事务</h3>
+            <button class="modal-close" onclick="closeProcessModal()">&times;</button>
+        </div>
+        <div>
+            <div class="progress-bar">
+                <div class="progress-step active" data-step="apply">
+                    <div class="step-circle">1</div>
+                    <div class="step-label">申请</div>
+                </div>
+                <div class="progress-step" data-step="review">
+                    <div class="step-circle">2</div>
+                    <div class="step-label">审核</div>
+                </div>
+                <div class="progress-step" data-step="approve">
+                    <div class="step-circle">3</div>
+                    <div class="step-label">审批</div>
+                </div>
+                <div class="progress-step" data-step="archive">
+                    <div class="step-circle">4</div>
+                    <div class="step-label">归档</div>
+                </div>
+            </div>
+
+            <div id="applicationDetail" style="margin-bottom:20px;"></div>
+
+            <form id="processForm">
+                <input type="hidden" id="processAppId">
+                <div class="form-group">
+                    <label>处理意见</label>
+                    <select class="form-control" id="processAction">
+                        <option value="通过">通过</option>
+                        <option value="驳回">驳回</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>备注说明</label>
+                    <textarea class="form-control" id="processComment" placeholder="请输入处理备注（可选）"></textarea>
+                </div>
+                <button type="submit" class="btn btn-success">确认处理并上链</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 详情模态框 -->
+<div class="modal" id="detailModal">
+    <div class="modal-content" style="max-width:1000px;">
+        <div class="modal-header">
+            <h3 class="modal-title">申请详情</h3>
+            <button class="modal-close" onclick="closeDetailModal()">&times;</button>
+        </div>
+        <div id="detailModalBody"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+    .template-paragraph {
+        margin-bottom: 20px;
+        padding: 15px;
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        line-height: 1.6;
+    }
+    
+    .template-field {
+        margin: 10px 0;
+    }
+    
+    .template-field label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+        color: #333;
+    }
+    
+    .template-field input[type="text"],
+    .template-field textarea,
+    .template-field select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    
+    .template-field textarea {
+        resize: vertical;
+        min-height: 80px;
+    }
+    
+    .template-field.required label::after {
+        content: ' *';
+        color: #f44336;
+    }
+    
+    .template-list {
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    
+    .template-list-header {
+        display: flex;
+        background: #f5f5f5;
+        padding: 8px;
+        border-bottom: 1px solid #ddd;
+        font-weight: bold;
+    }
+    
+    .template-list-row {
+        display: flex;
+        padding: 8px;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .template-list-cell {
+        flex: 1;
+        padding: 5px;
+    }
+    
+    .template-list-cell input {
+        width: 100%;
+        padding: 4px;
+        border: 1px solid #ddd;
+        border-radius: 3px;
+        font-size: 12px;
+    }
+    
+    .template-list-actions {
+        padding: 8px;
+        text-align: right;
+    }
+    
+    .template-list-actions button {
+        margin-left: 5px;
+        padding: 4px 8px;
+        font-size: 12px;
+    }
+</style>
+<script>
+let currentUser = null;
+let allApplications = [];
+let pendingApplications = [];
+let searchResultsData = [];
+let templates = [];
+let selectedTemplate = null;
+let templateFormData = {};
+
+// 阶段映射
+const stageMap = {
+    'apply': '申请',
+    'review': '审核',
+    'approve': '审批',
+    'archive': '归档'
+};
+
+// 初始化
+async function init() {
+    currentUser = await checkAuth();
+    if (!currentUser) return;
+
+    // 显示用户信息
+    document.getElementById('currentUsername').textContent = currentUser.username;
+    document.getElementById('currentRole').textContent = 
+        currentUser.role === 'super_admin' ? '超级管理员' : '普通用户';
+
+    // 超级管理员显示管理按钮
+    if (currentUser.role === 'super_admin') {
+        document.getElementById('adminBtn').style.display = 'inline-block';
+    }
+
+    // 初始化阶段切换按钮
+    initStageSwitcher();
+
+    // 加载数据
+    await loadBlockchainInfo();
+    await loadTemplates();
+    await loadApplications();
+
+    // 检查是否有申请权限
+    if (currentUser.permissions.includes('apply')) {
+        document.getElementById('newApplicationCard').style.display = 'block';
+    }
+}
+
+// 加载模板列表
+async function loadTemplates() {
+    try {
+        const response = await fetch('/api/templates');
+        const data = await response.json();
+        
+        if (data.success) {
+            templates = data.templates;
+            console.log('加载的模板数据:', templates);
+            populateTemplateSelect();
+        }
+    } catch (error) {
+        console.error('加载模板失败:', error);
+    }
+}
+
+// 填充模板选择下拉框
+function populateTemplateSelect() {
+    const select = document.getElementById('appTemplate');
+    select.innerHTML = '<option value="">不使用模板</option>';
+    
+    templates.forEach(template => {
+        const option = document.createElement('option');
+        option.value = template.id;
+        option.textContent = template.name;
+        select.appendChild(option);
+    });
+}
+
+// 监听模板选择变化
+document.getElementById('appTemplate').addEventListener('change', async function() {
+    const templateId = this.value;
+    
+    if (!templateId) {
+        // 不使用模板
+        document.getElementById('templatePreviewContainer').style.display = 'none';
+        document.getElementById('defaultContentForm').style.display = 'block';
+        document.getElementById('appContent').setAttribute('required', 'required');
+        selectedTemplate = null;
+        templateFormData = {};
+        return;
+    }
+    
+    // 使用模板
+    selectedTemplate = templates.find(t => t.id === templateId);
+    if (selectedTemplate) {
+        console.log('选中的模板:', selectedTemplate);
+        document.getElementById('templatePreviewContainer').style.display = 'block';
+        document.getElementById('defaultContentForm').style.display = 'none';
+        document.getElementById('appContent').removeAttribute('required');
+        renderTemplatePreview(selectedTemplate);
+    }
+});
+
+// 渲染模板预览
+function renderTemplatePreview(template) {
+    const container = document.getElementById('templatePreview');
+    container.innerHTML = '';
+    
+    console.log('模板预览数据:', template);
+    
+    if (!template.content || template.content.length === 0) {
+        container.innerHTML = '<div style="text-align:center;color:#999;">模板内容为空</div>';
+        return;
+    }
+    
+    template.content.forEach((paragraph, paraIndex) => {
+        console.log('段落数据:', paraIndex, paragraph);
+        const paragraphDiv = document.createElement('div');
+        paragraphDiv.className = 'template-paragraph';
+        
+        // 处理段落文本，替换组件占位符
+        let displayText = paragraph.text;
+        
+        // 如果没有文本，创建一个空段落
+        if (!displayText.trim()) {
+            displayText = '&nbsp;';
+        }
+        
+        // 替换组件占位符为实际的表单字段
+        paragraph.components.forEach((component, index) => {
+            console.log('组件数据:', component);
+            const placeholder = `{${component.label}}`;
+            console.log('替换占位符:', placeholder);
+            
+            // 直接为列表框返回完整的表格结构
+            let fieldHtml = '';
+            if (component.type === 'list') {
+                // 使用模板时，禁用列名编辑和添加列功能，只允许添加行和编辑单元格
+                fieldHtml = `<div class="template-field" style="display:block;margin:10px 0;">
+                    <label>${component.label}</label>
+                    <div class="template-list">
+                        <div class="template-list-header">
+                            <div class="template-list-cell">
+                                <input type="text" class="column-name-input" value="列1" readonly
+                                    style="width:100%;border:1px solid #ddd;border-radius:3px;padding:4px;font-size:12px;background:#f8f9fa;">
+                            </div>
+                            <div class="template-list-cell">
+                                <input type="text" class="column-name-input" value="列2" readonly
+                                    style="width:100%;border:1px solid #ddd;border-radius:3px;padding:4px;font-size:12px;background:#f8f9fa;">
+                            </div>
+                            <div class="template-list-cell" style="width:120px;">操作</div>
+                        </div>
+                        <div class="template-list-row">
+                            <div class="template-list-cell"><input type="text" name="test_list_row_0_col_0" placeholder="请输入"></div>
+                            <div class="template-list-cell"><input type="text" name="test_list_row_0_col_1" placeholder="请输入"></div>
+                            <div class="template-list-cell" style="width:120px;">
+                                <button class="btn btn-sm btn-danger" onclick="deleteListRow(this, 'test_list')">删除</button>
+                            </div>
+                        </div>
+                        <div class="template-list-actions" style="display:flex;gap:10px;margin-top:10px;">
+                            <button class="btn btn-sm btn-primary" onclick="addListRow('test_list')">添加行</button>
+                        </div>
+                    </div>
+                </div>`;
+            } else {
+                fieldHtml = renderTemplateField(component, index);
+            }
+            
+            console.log('字段HTML:', fieldHtml);
+            displayText = displayText.replace(new RegExp(placeholder, 'g'), fieldHtml);
+            console.log('替换后文本:', displayText);
+        });
+        
+        paragraphDiv.innerHTML = displayText;
+        container.appendChild(paragraphDiv);
+    });
+}
+
+// 渲染模板字段
+function renderTemplateField(component, index) {
+    console.log('渲染组件:', component.type, component);
+    const fieldId = `template_field_${component.id}_${index}`;
+    
+    switch(component.type) {
+        case 'text':
+            // 单行文本组件显示为内联输入框
+            return `<input type="text" id="${fieldId}" name="${component.id}" placeholder="${component.placeholder || component.label}" ${component.required ? 'required' : ''} value="${component.default || ''}" style="display:inline-block;padding:2px 6px;border:1px solid #999;border-radius:2px;font-size:14px;min-width:80px;max-width:200px;margin:0 2px;">`;
+            break;
+        case 'textarea':
+            return `<div class="template-field ${component.required ? 'required' : ''}" style="display:block;margin:10px 0;">
+                <label for="${fieldId}">${component.label}</label>
+                <textarea id="${fieldId}" name="${component.id}" placeholder="${component.placeholder || '请输入'}" ${component.required ? 'required' : ''}>${component.default || ''}</textarea>
+            </div>`;
+            break;
+        case 'select':
+            return `<div class="template-field ${component.required ? 'required' : ''}" style="display:block;margin:10px 0;">
+                <label for="${fieldId}">${component.label}</label>
+                <select id="${fieldId}" name="${component.id}" ${component.required ? 'required' : ''}>
+                    ${component.options && component.options.length > 0 ? 
+                        component.options.map(option => `<option value="${option}" ${component.default === option ? 'selected' : ''}>${option}</option>`).join('') : 
+                        '<option value="">请选择</option>'
+                    }
+                </select>
+            </div>`;
+            break;
+        case 'list':
+            // 直接返回完整的列表框HTML结构
+            return `<div class="template-field" style="display:block;margin:10px 0;">
+                <label>新列表框</label>
+                <div class="template-list">
+                    <div class="template-list-header">
+                        <div class="template-list-cell">
+                            <input type="text" class="column-name-input" value="列1" 
+                                onblur="updateColumnName('test_list', 0, this.value)"
+                                style="width:100%;border:1px solid #ddd;border-radius:3px;padding:4px;font-size:12px;">
+                        </div>
+                        <div class="template-list-cell">
+                            <input type="text" class="column-name-input" value="列2" 
+                                onblur="updateColumnName('test_list', 1, this.value)"
+                                style="width:100%;border:1px solid #ddd;border-radius:3px;padding:4px;font-size:12px;">
+                        </div>
+                        <div class="template-list-cell" style="width:120px;">操作</div>
+                    </div>
+                    <div class="template-list-row">
+                        <div class="template-list-cell"><input type="text" name="test_list_row_0_col_0" placeholder="请输入"></div>
+                        <div class="template-list-cell"><input type="text" name="test_list_row_0_col_1" placeholder="请输入"></div>
+                        <div class="template-list-cell" style="width:120px;">
+                            <button class="btn btn-sm btn-danger" onclick="deleteListRow(this, 'test_list')">删除</button>
+                        </div>
+                    </div>
+                    <div class="template-list-actions" style="display:flex;gap:10px;margin-top:10px;">
+                        <button class="btn btn-sm btn-primary" onclick="addListRow('test_list')">添加行</button>
+                        <button class="btn btn-sm btn-secondary" onclick="addListColumn('test_list')">添加列</button>
+                    </div>
+                </div>
+            </div>`;
+            break;
+        default:
+            return `<span>${component.label}</span>`;
+    }
+}
+
+// 更新列名 - 全局函数
+window.updateColumnName = function(listId, columnIndex, newName) {
+    // 这里可以添加保存列名的逻辑
+    console.log(`更新列名: ${listId}, 列索引: ${columnIndex}, 新名称: ${newName}`);
+};
+
+// 添加列表列 - 全局函数
+window.addListColumn = function(listId) {
+    try {
+        console.log('添加列开始:', listId);
+        const listElement = document.querySelector(`[name*="${listId}_row_"]`).closest('.template-list');
+        if (!listElement) {
+            console.error('找不到列表元素:', listId);
+            return;
+        }
+        console.log('找到列表元素:', listElement);
+        
+        const header = listElement.querySelector('.template-list-header');
+        if (!header) {
+            console.error('找不到表头元素');
+            return;
+        }
+        
+        // 获取当前列数
+        const columns = header.querySelectorAll('.template-list-cell:not(:last-child)');
+        const newColumnIndex = columns.length;
+        console.log('当前列数:', columns.length, '新列索引:', newColumnIndex);
+        
+        // 添加新列到表头
+        const newHeaderCell = document.createElement('div');
+        newHeaderCell.className = 'template-list-cell';
+        newHeaderCell.innerHTML = `<input type="text" class="column-name-input" value="新列${newColumnIndex + 1}" 
+            onblur="updateColumnName('${listId}', ${newColumnIndex}, this.value)"
+            style="width:100%;border:1px solid #ddd;border-radius:3px;padding:4px;font-size:12px;">`;
+        
+        const actionCell = header.querySelector('.template-list-cell:last-child');
+        header.insertBefore(newHeaderCell, actionCell);
+        console.log('添加表头列成功');
+        
+        // 为每一行添加新列
+        const rows = listElement.querySelectorAll('.template-list-row');
+        rows.forEach((row, rowIndex) => {
+            const newCell = document.createElement('div');
+            newCell.className = 'template-list-cell';
+            newCell.innerHTML = `<input type="text" name="${listId}_row_${rowIndex}_col_${newColumnIndex}" placeholder="请输入">`;
+            
+            const deleteButtonCell = row.querySelector('.template-list-cell:last-child');
+            row.insertBefore(newCell, deleteButtonCell);
+        });
+        console.log('添加数据列成功');
+    } catch (error) {
+        console.error('添加列失败:', error);
+    }
+};
+
+// 添加列表行 - 全局函数
+window.addListRow = function(listId) {
+    const listElement = document.querySelector(`[name*="${listId}_row_"]`).closest('.template-list');
+    const rows = listElement.querySelectorAll('.template-list-row');
+    const newRowIndex = rows.length;
+    
+    const header = listElement.querySelector('.template-list-header');
+    const columns = header.querySelectorAll('.template-list-cell:not(:last-child)');
+    const columnCount = columns.length;
+    
+    const newRow = document.createElement('div');
+    newRow.className = 'template-list-row';
+    
+    for (let i = 0; i < columnCount; i++) {
+        newRow.innerHTML += `<div class="template-list-cell"><input type="text" name="${listId}_row_${newRowIndex}_col_${i}" placeholder="请输入"></div>`;
+    }
+    
+    // 添加删除按钮
+    newRow.innerHTML += `<div class="template-list-cell" style="width:120px;">
+        <button class="btn btn-sm btn-danger" onclick="deleteListRow(this, '${listId}')">删除</button>
+    </div>`;
+    
+    const actionsDiv = listElement.querySelector('.template-list-actions');
+    listElement.insertBefore(newRow, actionsDiv);
+};
+
+// 删除列表行 - 全局函数
+window.deleteListRow = function(button, listId) {
+    const row = button.closest('.template-list-row');
+    if (row) {
+        row.remove();
+        // 重新编号剩余行
+        renumberListRows(listId);
+    }
+};
+
+// 重新编号列表行 - 全局函数
+window.renumberListRows = function(listId) {
+    const listElement = document.querySelector(`[name*="${listId}_row_"]`).closest('.template-list');
+    const rows = listElement.querySelectorAll('.template-list-row');
+    
+    rows.forEach((row, newIndex) => {
+        const inputs = row.querySelectorAll('input');
+        inputs.forEach((input, colIndex) => {
+            input.name = `${listId}_row_${newIndex}_col_${colIndex}`;
+        });
+    });
+};
+
+// 初始化阶段切换器
+function initStageSwitcher() {
+    const buttons = document.querySelectorAll('.stage-btn');
+    let hasActive = false;
+    
+    buttons.forEach((btn, index) => {
+        const stage = btn.dataset.stage;
+        // 检查用户是否有该阶段权限
+        if (!currentUser.permissions.includes(stage) && currentUser.role !== 'super_admin') {
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+        }
+        
+        // 默认激活第一个按钮
+        if (!hasActive && (!btn.disabled || currentUser.role === 'super_admin')) {
+            btn.classList.add('active');
+            hasActive = true;
+        }
+        
+        btn.addEventListener('click', async () => {
+            buttons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            await loadApplications();
+        });
+    });
+    
+    // 如果没有找到可激活的按钮，强制激活第一个
+    if (!hasActive && buttons.length > 0) {
+        buttons[0].classList.add('active');
+    }
+}
+
+// 加载区块链信息
+async function loadBlockchainInfo() {
+    try {
+        const response = await fetch('/api/blockchain/info');
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('chainLength').textContent = data.info.chain_length;
+            document.getElementById('chainValid').textContent = data.info.is_valid ? '✅' : '❌';
+            document.getElementById('latestBlock').textContent = `#${data.info.latest_block.index} - ${data.info.latest_block.hash.substring(0, 16)}...`;
+        }
+    } catch (error) {
+        console.error('加载区块链信息失败:', error);
+    }
+}
+
+// 加载申请数据
+async function loadApplications() {
+    try {
+        const activeBtn = document.querySelector('.stage-btn.active');
+        if (!activeBtn) {
+            console.error('没有找到激活的阶段按钮');
+            return;
+        }
+        
+        const activeStage = activeBtn.dataset.stage;
+        
+        const response = await fetch('/api/applications');
+        const data = await response.json();
+        
+        if (data.success) {
+            allApplications = data.all_applications;
+            pendingApplications = data.pending_applications;
+            
+            // 根据当前选中的阶段筛选待办事务
+            const filteredPending = pendingApplications.filter(app => app.current_stage === activeStage);
+            renderPendingList(filteredPending);
+            renderAllApplications();
+        } else {
+            console.error('加载数据失败:', data.message);
+            showAlert('加载数据失败: ' + data.message, 'error');
+        }
+    } catch (error) {
+        console.error('加载申请数据失败:', error);
+        showAlert('加载数据失败', 'error');
+    }
+}
+
+// 渲染待办事务列表
+function renderPendingList(applications) {
+    const tbody = document.getElementById('pendingTableBody');
+    
+    if (applications.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">暂无待办事务</td></tr>';
+        document.getElementById('pendingCount').textContent = '';
+        return;
+    }
+    
+    document.getElementById('pendingCount').textContent = `(${applications.length})`;
+    
+    tbody.innerHTML = applications.map(app => `
+        <tr>
+            <td>${app.title}</td>
+            <td>${app.applicant}</td>
+            <td><span class="status-badge stage-${app.current_stage}">${stageMap[app.current_stage]}</span></td>
+            <td>${new Date(app.created_at).toLocaleString()}</td>
+            <td>
+                <button class="btn btn-primary" onclick="processApplication('${app.id}')">处理</button>
+                <button class="btn btn-secondary" onclick="viewApplication('${app.id}')">详情</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// 渲染全部事务列表
+function renderAllApplications() {
+    const tbody = document.getElementById('allAppsTableBody');
+    
+    if (allApplications.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;">暂无事务记录</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = allApplications.map(app => `
+        <tr>
+            <td>${app.title}</td>
+            <td>${app.applicant}</td>
+            <td><span class="status-badge stage-${app.current_stage}">${stageMap[app.current_stage]}</span></td>
+            <td><span class="status-badge ${app.status === 'completed' ? 'status-completed' : 'status-pending'}">${app.status === 'completed' ? '已完成' : '处理中'}</span></td>
+            <td>${new Date(app.created_at).toLocaleString()}</td>
+            <td>
+                <button class="btn btn-secondary" onclick="viewApplication('${app.id}')">详情</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// 提交申请
+document.getElementById('applicationForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const title = document.getElementById('appTitle').value.trim();
+    const templateId = document.getElementById('appTemplate').value;
+    
+    let content;
+    
+    if (templateId && selectedTemplate) {
+        // 使用模板收集数据
+        content = {};
+        const formElements = document.querySelectorAll('#templatePreview input, #templatePreview textarea, #templatePreview select');
+        
+        formElements.forEach(element => {
+            const name = element.name;
+            if (name.includes('_row_')) {
+                // 处理列表数据
+                const parts = name.split('_');
+                const listId = parts[0];
+                const rowIndex = parts[2];
+                const colIndex = parts[4];
+                
+                if (!content[listId]) {
+                    content[listId] = [];
+                }
+                
+                if (!content[listId][rowIndex]) {
+                    content[listId][rowIndex] = {};
+                }
+                
+                content[listId][rowIndex][colIndex] = element.value;
+            } else {
+                // 处理普通字段
+                content[name] = element.value;
+            }
+        });
+    } else {
+        // 使用默认内容
+        content = document.getElementById('appContent').value.trim();
+    }
+    
+    if (!title) {
+        showAlert('请输入申请标题', 'error');
+        return;
+    }
+    
+    if (!content || (typeof content === 'object' && Object.keys(content).length === 0)) {
+        showAlert('请填写申请内容', 'error');
+        return;
+    }
+    
+    // 显示加载动画
+    showLoading('正在提交申请...区块链挖矿中');
+    
+    try {
+        const response = await fetch('/api/applications', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title,
+                content,
+                template_id: templateId || null
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // 异步挖矿
+            await mineApplication(data.application);
+            
+            showAlert('申请提交成功！', 'success');
+            document.getElementById('applicationForm').reset();
+            document.getElementById('templatePreviewContainer').style.display = 'none';
+            document.getElementById('defaultContentForm').style.display = 'block';
+            selectedTemplate = null;
+            templateFormData = {};
+            
+            // 刷新数据
+            await loadApplications();
+        } else {
+            showAlert('提交失败: ' + data.message, 'error');
+        }
+    } catch (error) {
+        showAlert('提交失败', 'error');
+    } finally {
+        hideLoading();
+    }
+});
+
+// 处理申请
+function processApplication(appId) {
+    const app = allApplications.find(a => a.id === appId);
+    if (!app) return;
+    
+    document.getElementById('processAppId').value = appId;
+    
+    // 更新进度条
+    const steps = document.querySelectorAll('.progress-step');
+    steps.forEach(step => step.classList.remove('active'));
+    
+    const currentStep = document.querySelector(`[data-step="${app.current_stage}"]`);
+    if (currentStep) {
+        currentStep.classList.add('active');
+    }
+    
+    // 显示申请详情
+    let contentHtml = '';
+    if (typeof app.content === 'object') {
+        contentHtml = Object.entries(app.content).map(([key, value]) => {
+            return `<p><strong>${key}:</strong> ${JSON.stringify(value)}</p>`;
+        }).join('');
+    } else {
+        contentHtml = `<p>${app.content}</p>`;
+    }
+    
+    document.getElementById('applicationDetail').innerHTML = `
+        <h4>${app.title}</h4>
+        <p><strong>申请人:</strong> ${app.applicant}</p>
+        <p><strong>当前阶段:</strong> <span class="status-badge stage-${app.current_stage}">${stageMap[app.current_stage]}</span></p>
+        <p><strong>申请内容:</strong></p>
+        <div style="background:#f8f9fa;padding:15px;border-radius:5px;">
+            ${contentHtml}
+        </div>
+    `;
+    
+    document.getElementById('processModal').classList.add('active');
+}
+
+// 查看申请详情
+function viewApplication(appId) {
+    const app = allApplications.find(a => a.id === appId);
+    if (!app) return;
+    
+    let contentHtml = '';
+    if (typeof app.content === 'object') {
+        // 如果是模板内容，显示完整的模板内容
+        if (app.content.content && Array.isArray(app.content.content)) {
+            contentHtml = app.content.content.map(paragraph => {
+                let displayText = paragraph.text;
+                // 如果段落有组件，渲染组件
+                if (paragraph.components && paragraph.components.length > 0) {
+                    paragraph.components.forEach(component => {
+                        const placeholder = `{${component.label}}`;
+                        let componentHtml = '';
+                        
+                        switch(component.type) {
+                            case 'text':
+                                componentHtml = `<input type="text" readonly value="${component.value || ''}" style="display:inline-block;padding:2px 6px;border:1px solid #999;border-radius:2px;font-size:14px;min-width:80px;max-width:200px;margin:0 2px;background:#f8f9fa;">`;
+                                break;
+                            case 'textarea':
+                                componentHtml = `<div style="margin:10px 0;">
+                                    <label style="display:block;margin-bottom:5px;font-weight:bold;">${component.label}</label>
+                                    <textarea readonly style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px;background:#f8f9fa;">${component.value || ''}</textarea>
+                                </div>`;
+                                break;
+                            case 'select':
+                                componentHtml = `<div style="margin:10px 0;">
+                                    <label style="display:block;margin-bottom:5px;font-weight:bold;">${component.label}</label>
+                                    <input type="text" readonly value="${component.value || ''}" style="width:200px;padding:6px;border:1px solid #ddd;border-radius:4px;background:#f8f9fa;">
+                                </div>`;
+                                break;
+                            case 'list':
+                                if (component.value && component.value.length > 0) {
+                                    componentHtml = `<div style="margin:10px 0;">
+                                        <label style="display:block;margin-bottom:10px;font-weight:bold;">${component.label}</label>
+                                        <table style="width:100%;border-collapse:collapse;">
+                                            <thead>
+                                                <tr style="background:#f5f5f5;">
+                                                    ${component.columns.map(col => `<th style="border:1px solid #ddd;padding:8px;text-align:left;">${col}</th>`).join('')}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${component.value.map(row => `
+                                                    <tr>
+                                                        ${row.map((cell, index) => `<td style="border:1px solid #ddd;padding:8px;">${cell || ''}</td>`).join('')}
+                                                    </tr>
+                                                `).join('')}
+                                            </tbody>
+                                        </table>
+                                    </div>`;
+                                }
+                                break;
+                        }
+                        
+                        displayText = displayText.replace(new RegExp(placeholder, 'g'), componentHtml);
+                    });
+                }
+                return `<p>${displayText}</p>`;
+            }).join('');
+        } else {
+            // 检查是否是表单字段内容（包含value属性）
+            const hasValueFields = Object.values(app.content).some(val => 
+                typeof val === 'object' && val !== null && 'value' in val
+            );
+            
+            if (hasValueFields) {
+                // 表单字段内容，按组件类型显示
+                contentHtml = Object.entries(app.content).map(([key, component]) => {
+                    if (typeof component === 'object' && component !== null) {
+                        const label = component.label || key.replace(/component_\d+/, '');
+                        const value = component.value || '';
+                        
+                        switch(component.type) {
+                            case 'text':
+                                return `<p>${label}: <input type="text" readonly value="${value}" style="display:inline-block;padding:2px 6px;border:1px solid #999;border-radius:2px;font-size:14px;min-width:80px;max-width:200px;margin:0 2px;background:#f8f9fa;"></p>`;
+                            case 'textarea':
+                                return `<div style="margin:10px 0;">
+                                    <label style="display:block;margin-bottom:5px;font-weight:bold;">${label}</label>
+                                    <textarea readonly style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px;background:#f8f9fa;">${value}</textarea>
+                                </div>`;
+                            case 'select':
+                                return `<p>${label}: <input type="text" readonly value="${value}" style="display:inline-block;padding:2px 6px;border:1px solid #999;border-radius:2px;font-size:14px;min-width:80px;max-width:200px;margin:0 2px;background:#f8f9fa;"></p>`;
+                            case 'list':
+                                if (component.columns && component.value && component.value.length > 0) {
+                                    return `<div style="margin:10px 0;">
+                                        <label style="display:block;margin-bottom:10px;font-weight:bold;">${label}</label>
+                                        <table style="width:100%;border-collapse:collapse;">
+                                            <thead>
+                                                <tr style="background:#f5f5f5;">
+                                                    ${component.columns.map(col => `<th style="border:1px solid #ddd;padding:8px;text-align:left;">${col}</th>`).join('')}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${component.value.map(row => `
+                                                    <tr>
+                                                        ${row.map((cell, index) => `<td style="border:1px solid #ddd;padding:8px;">${cell || ''}</td>`).join('')}
+                                                    </tr>
+                                                `).join('')}
+                                            </tbody>
+                                        </table>
+                                    </div>`;
+                                }
+                                return `<p>${label}: 无数据</p>`;
+                            default:
+                                return `<p><strong>${label}:</strong> ${JSON.stringify(value)}</p>`;
+                        }
+                    }
+                    return `<p><strong>${key}:</strong> ${JSON.stringify(component)}</p>`;
+                }).join('');
+            } else {
+                // 普通对象内容
+                contentHtml = Object.entries(app.content).map(([key, value]) => {
+                    return `<p><strong>${key}:</strong> ${typeof value === 'object' ? JSON.stringify(value) : value}</p>`;
+                }).join('');
+            }
+        }
+    } else {
+        // 普通文本内容
+        contentHtml = `<p>${app.content}</p>`;
+    }
+    
+    let historyHtml = '';
+    if (app.history && app.history.length > 0) {
+        historyHtml = `
+            <div style="margin-bottom:20px;">
+                <h4>处理历史</h4>
+                <div style="background:#f8f9fa;padding:15px;border-radius:5px;">
+                    ${app.history.map(h => `
+                        <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #e0e0e0;font-size:12px;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+                                <span><strong>时间:</strong> ${new Date(h.timestamp).toLocaleString()}</span>
+                                <span><strong>区块:</strong> #${h.block_index}</span>
+                            </div>
+                            <div style="display:flex;flex-wrap:wrap;gap:15px;margin-bottom:5px;">
+                                <span><strong>操作人:</strong> ${h.operator}</span>
+                                ${h.action ? `<span><strong>操作:</strong> ${h.action}</span>` : ''}
+                            </div>
+                            <div style="display:flex;flex-wrap:wrap;gap:15px;">
+                                ${h.stage ? `<span><strong>阶段:</strong> ${stageMap[h.stage]}</span>` : ''}
+                                ${h.from_stage && h.to_stage ? `<span><strong>流程:</strong> ${stageMap[h.from_stage]} → ${stageMap[h.to_stage]}</span>` : ''}
+                                ${h.comment ? `<span><strong>备注:</strong> ${h.comment}</span>` : ''}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+    
+    document.getElementById('detailModalBody').innerHTML = `
+        <!-- 基本信息部分 -->
+        <div style="margin-bottom:20px;">
+            <!-- 第一行：标题 -->
+            <div style="margin-bottom:10px;">
+                <h3><strong>标题：</strong>${app.title}</h3>
+            </div>
+            
+            <!-- 第二行：申请人、当前阶段、状态、时间 -->
+            <div style="margin-bottom:20px;font-size:14px;">
+                <span style="margin-right:20px;"><strong>申请人:</strong> <span style="font-weight:bold;color:#4CAF50;">${app.applicant}</span></span>
+                <span style="margin-right:20px;"><strong>当前阶段:</strong> <span class="status-badge stage-${app.current_stage}">${stageMap[app.current_stage]}</span></span>
+                <span style="margin-right:20px;"><strong>状态:</strong> <span class="status-badge ${app.status === 'completed' ? 'status-completed' : 'status-pending'}">${app.status === 'completed' ? '已完成' : '处理中'}</span></span>
+                <span style="color:#666;"><strong>创建时间:</strong> ${new Date(app.created_at).toLocaleString()}</span>
+                <span style="margin-left:20px;color:#666;"><strong>更新时间:</strong> ${new Date(app.updated_at).toLocaleString()}</span>
+            </div>
+        </div>
+        
+        <!-- 分隔线 -->
+        <hr style="border:1px solid #e0e0e0;margin:20px 0;">
+        
+        <!-- 申请内容部分 -->
+        <div style="margin-bottom:20px;">
+            <h3><strong>申请内容：</strong></h3>
+            <div style="background:#f8f9fa;padding:15px;border-radius:5px;line-height:1.6;min-height:150px;">
+                ${contentHtml}
+            </div>
+        </div>
+        
+        <!-- 分隔线 -->
+        ${historyHtml ? '<hr style="border:1px solid #e0e0e0;margin:20px 0;">' : ''}
+        
+        ${historyHtml}
+    `;
+    
+    document.getElementById('detailModal').classList.add('active');
+}
+
+// 提交处理表单
+document.getElementById('processForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const appId = document.getElementById('processAppId').value;
+    const action = document.getElementById('processAction').value;
+    const comment = document.getElementById('processComment').value;
+    
+    showLoading('正在处理事务...区块链挖矿中');
+    
+    try {
+        const response = await fetch(`/api/applications/${appId}/process`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, comment })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // 异步挖矿
+            await mineProcessApplication(appId, action, comment);
+            
+            showAlert('事务处理成功！', 'success');
+            closeProcessModal();
+            await loadApplications();
+        } else {
+            showAlert('处理失败: ' + data.message, 'error');
+        }
+    } catch (error) {
+        showAlert('处理失败', 'error');
+    } finally {
+        hideLoading();
+    }
+});
+
+// 异步挖矿（创建申请）
+async function mineApplication(application) {
+    try {
+        const response = await fetch('/api/applications/mine', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                type: 'create',
+                application_data: {
+                    title: application.title,
+                    content: application.content,
+                    template_id: application.template_id
+                }
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            console.error('挖矿失败:', data.message);
+        }
+    } catch (error) {
+        console.error('挖矿失败:', error);
+    }
+}
+
+// 异步挖矿（处理申请）
+async function mineProcessApplication(appId, action, comment) {
+    try {
+        const response = await fetch(`/api/applications/${appId}/mine`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, comment })
+        });
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            console.error('挖矿失败:', data.message);
+        }
+    } catch (error) {
+        console.error('挖矿失败:', error);
+    }
+}
+
+// 关闭处理模态框
+function closeProcessModal() {
+    document.getElementById('processModal').classList.remove('active');
+}
+
+// 关闭详情模态框
+function closeDetailModal() {
+    document.getElementById('detailModal').classList.remove('active');
+}
+
+// 搜索历史记录
+async function searchHistory() {
+    const startTime = document.getElementById('searchStartTime').value;
+    const endTime = document.getElementById('searchEndTime').value;
+    const operator = document.getElementById('searchOperator').value.trim();
+    const stage = document.getElementById('searchStage').value;
+
+    let url = '/api/blockchain/transactions/search?';
+    const params = [];
+    
+    if (startTime) {
+        params.push(`start_time=${encodeURIComponent(startTime)}`);
+    }
+    if (endTime) {
+        params.push(`end_time=${encodeURIComponent(endTime)}`);
+    }
+    if (operator) {
+        params.push(`operator=${encodeURIComponent(operator)}`);
+    }
+    if (stage) {
+        params.push(`stage=${encodeURIComponent(stage)}`);
+    }
+    
+    url += params.join('&');
+
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.success) {
+            renderSearchResults(data.transactions);
+            document.getElementById('searchResultCount').textContent = data.count;
+        } else {
+            showAlert('搜索失败: ' + data.message, 'error');
+        }
+    } catch (error) {
+        showAlert('搜索出错', 'error');
+    }
+}
+
+// 渲染搜索结果
+function renderSearchResults(transactions) {
+    const tbody = document.getElementById('searchResultsBody');
+    searchResultsData = transactions;
+
+    if (transactions.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;">未找到符合条件的记录</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = transactions.map(tx => {
+        let typeText = '';
+        let stageText = '';
+        
+        if (tx.type === 'application_created') {
+            typeText = '创建申请';
+            stageText = stageMap[tx.stage] || tx.stage;
+        } else if (tx.type === 'application_processed') {
+            typeText = '流程处理';
+            stageText = `${stageMap[tx.from_stage] || tx.from_stage} → ${stageMap[tx.to_stage] || tx.to_stage}`;
+        }
+
+        return `
+            <tr>
+                <td>#${tx.block_index}</td>
+                <td>${new Date(tx.timestamp).toLocaleString()}</td>
+                <td><span class="status-badge stage-apply">${typeText}</span></td>
+                <td>${tx.operator || '-'}</td>
+                <td><span class="status-badge stage-review">${stageText}</span></td>
+                <td>
+                    <button class="btn btn-secondary" onclick="viewTransactionDetail('${tx.hash}', ${tx.block_index})">详情</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// 查看交易详情
+function viewTransactionDetail(hash, blockIndex) {
+    const tx = searchResultsData.find(t => t.block_index === blockIndex);
+    if (!tx) return;
+
+    let detailHtml = `
+        <!-- 区块信息部分 -->
+        <div style="margin-bottom:20px;">
+            <h4>区块信息</h4>
+            <div style="background:#f8f9fa;padding:15px;border-radius:5px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                    <span><strong>区块高度:</strong> #${tx.block_index}</span>
+                    <span><strong>时间戳:</strong> ${new Date(tx.timestamp).toLocaleString()}</span>
+                </div>
+                <div>
+                    <strong>区块哈希:</strong> <code style="font-size:11px;word-break:break-all;">${tx.hash}</code>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 分隔线 -->
+        <hr style="border:1px solid #e0e0e0;margin:20px 0;">
+        
+        <!-- 交易数据部分 -->
+        <div style="margin-bottom:20px;">
+            <h4>交易数据</h4>
+            <div style="background:#f8f9fa;padding:15px;border-radius:5px;">
+                <div style="display:flex;flex-wrap:wrap;gap:20px;margin-bottom:10px;">
+                    <span><strong>类型:</strong> ${tx.type === 'application_created' ? '创建申请' : '流程处理'}</span>
+                    <span><strong>操作人:</strong> ${tx.operator || '-'}</span>
+                </div>
+                
+                ${tx.title ? `
+                    <div style="margin-bottom:10px;">
+                        <strong>标题：</strong>${tx.title}
+                    </div>
+                ` : ''}
+                
+                ${tx.stage || tx.from_stage || tx.to_stage ? `
+                    <div style="display:flex;flex-wrap:wrap;gap:20px;margin-bottom:10px;">
+                        ${tx.stage ? `<span><strong>阶段:</strong> ${stageMap[tx.stage] || tx.stage}</span>` : ''}
+                        ${tx.from_stage && tx.to_stage ? `<span><strong>流程:</strong> ${stageMap[tx.from_stage]} → ${stageMap[tx.to_stage]}</span>` : ''}
+                    </div>
+                ` : ''}
+                
+                ${tx.action ? `
+                    <div style="margin-bottom:10px;">
+                        <strong>操作:</strong> ${tx.action}
+                    </div>
+                ` : ''}
+                
+                ${tx.comment ? `
+                    <div style="margin-bottom:10px;">
+                        <strong>备注:</strong> ${tx.comment}
+                    </div>
+                ` : ''}
+                
+                ${tx.content ? `
+                    <div style="margin-top:10px;">
+                        <strong>内容:</strong> ${typeof tx.content === 'object' ? JSON.stringify(tx.content) : tx.content}
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+
+    document.getElementById('detailModalBody').innerHTML = detailHtml;
+    document.getElementById('detailModal').classList.add('active');
+}
+
+// 重置搜索
+function resetSearch() {
+    document.getElementById('searchStartTime').value = '';
+    document.getElementById('searchEndTime').value = '';
+    document.getElementById('searchOperator').value = '';
+    document.getElementById('searchStage').value = '';
+    document.getElementById('searchResultsBody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;">请点击搜索查看历史记录</td></tr>';
+    document.getElementById('searchResultCount').textContent = '0';
+    searchResultsData = [];
+}
+
+// 点击模态框外部关闭
+window.onclick = function(event) {
+    if (event.target.classList.contains('modal')) {
+        event.target.classList.remove('active');
+    }
+}
+
+// 初始化页面
+init();
+</script>
+{% endblock %}

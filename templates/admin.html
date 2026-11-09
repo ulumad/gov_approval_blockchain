@@ -1,0 +1,380 @@
+{% extends "base.html" %}
+
+{% block title %}用户管理 - 政务审批区块链系统{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- 头部 -->
+    <div class="header">
+        <div class="logo">
+            <div class="logo-icon">🏛️</div>
+            <div class="logo-text">
+                <h1>用户管理</h1>
+                <p>政务审批区块链系统</p>
+            </div>
+        </div>
+        <div class="user-section">
+            <div class="user-info">
+                <div class="username" id="currentUsername">加载中...</div>
+                <div class="role" id="currentRole">超级管理员</div>
+            </div>
+            <a href="/" class="btn btn-secondary">返回首页</a>
+            <button class="btn btn-danger" onclick="logout()">登出</button>
+        </div>
+    </div>
+
+    <!-- 新建用户 -->
+    <div class="card">
+        <h2 class="card-title">➕ 新建用户</h2>
+        <form id="createUserForm">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+                <div class="form-group">
+                    <label>用户名</label>
+                    <input type="text" class="form-control" id="newUsername" placeholder="请输入用户名" required>
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" class="form-control" id="newPassword" placeholder="请输入密码" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>权限分配</label>
+                <div style="display:flex;gap:15px;flex-wrap:wrap;margin-top:10px;" id="permissionsContainer">
+                    <!-- 权限选项将通过JS动态生成 -->
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary">创建用户</button>
+        </form>
+    </div>
+
+    <!-- 用户列表 -->
+    <div class="card">
+        <h2 class="card-title">👥 用户列表</h2>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>用户名</th>
+                    <th>角色</th>
+                    <th>权限</th>
+                    <th>创建时间</th>
+                    <th>创建人</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="usersTableBody">
+                <tr>
+                    <td colspan="6" style="text-align:center;color:#999;">加载中...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 编辑权限模态框 -->
+<div class="modal" id="editPermissionsModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">编辑用户权限</h3>
+            <button class="modal-close" onclick="closeEditModal()">&times;</button>
+        </div>
+        <div>
+            <p style="margin-bottom:15px;">用户: <strong id="editUsername"></strong></p>
+            <div class="form-group">
+                <label>权限分配</label>
+                <div style="display:flex;gap:15px;flex-wrap:wrap;margin-top:10px;" id="editPermissionsContainer">
+                    <!-- 权限选项将通过JS动态生成 -->
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="savePermissions()">保存权限</button>
+        </div>
+    </div>
+</div>
+
+<!-- 修改密码模态框 -->
+<div class="modal" id="changePasswordModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">修改密码</h3>
+            <button class="modal-close" onclick="closePasswordModal()">&times;</button>
+        </div>
+        <div>
+            <p style="margin-bottom:15px;">用户: <strong id="passwordUsername"></strong></p>
+            <div class="form-group">
+                <label>新密码</label>
+                <input type="password" class="form-control" id="newUserPassword" placeholder="请输入新密码" required>
+            </div>
+            <button class="btn btn-primary" onclick="savePassword()">保存密码</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentUser = null;
+let allUsers = [];
+let allPermissions = [];
+let editingUser = null;
+let changingPasswordUser = null;
+
+// 权限映射
+const permissionMap = {
+    'apply': '申请',
+    'review': '审核',
+    'approve': '审批',
+    'archive': '归档'
+};
+
+// 初始化
+async function init() {
+    currentUser = await checkAuth();
+    if (!currentUser) return;
+
+    // 检查是否为超级管理员
+    if (currentUser.role !== 'super_admin') {
+        showAlert('您没有权限访问此页面', 'error');
+        setTimeout(() => window.location.href = '/', 1500);
+        return;
+    }
+
+    // 显示用户信息
+    document.getElementById('currentUsername').textContent = currentUser.username;
+
+    // 加载权限列表
+    await loadPermissions();
+
+    // 加载用户列表
+    await loadUsers();
+}
+
+// 加载权限列表
+async function loadPermissions() {
+    try {
+        const response = await fetch('/api/permissions');
+        const data = await response.json();
+        if (data.success) {
+            allPermissions = data.permissions;
+            renderPermissionCheckboxes('permissionsContainer');
+        }
+    } catch (error) {
+        console.error('加载权限失败:', error);
+    }
+}
+
+// 渲染权限复选框
+function renderPermissionCheckboxes(containerId, selectedPermissions = []) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = allPermissions.map(p => `
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;">
+            <input type="checkbox" value="${p.value}" ${selectedPermissions.includes(p.value) ? 'checked' : ''}>
+            <span>${permissionMap[p.value] || p.value}</span>
+        </label>
+    `).join('');
+}
+
+// 加载用户列表
+async function loadUsers() {
+    try {
+        const response = await fetch('/api/users');
+        const data = await response.json();
+
+        if (data.success) {
+            allUsers = data.users;
+            renderUsersTable();
+        }
+    } catch (error) {
+        console.error('加载用户失败:', error);
+    }
+}
+
+// 渲染用户表格
+function renderUsersTable() {
+    const tbody = document.getElementById('usersTableBody');
+
+    if (allUsers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;">暂无用户</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = allUsers.map(user => {
+        const permissionsText = user.permissions.map(p => permissionMap[p] || p).join(', ') || '无权限';
+        const isAdmin = user.role === 'super_admin';
+
+        return `
+            <tr>
+                <td>${user.username}</td>
+                <td><span class="status-badge ${isAdmin ? 'stage-approve' : 'stage-apply'}">${isAdmin ? '超级管理员' : '普通用户'}</span></td>
+                <td>${permissionsText}</td>
+                <td>${new Date(user.created_at).toLocaleString()}</td>
+                <td>${user.created_by || '-'}</td>
+                <td>
+                    ${!isAdmin ? `
+                        <button class="btn btn-primary" onclick="openEditModal('${user.username}')">编辑权限</button>
+                        <button class="btn btn-secondary" onclick="openPasswordModal('${user.username}')">修改密码</button>
+                        <button class="btn btn-danger" onclick="deleteUser('${user.username}')">删除</button>
+                    ` : '<span style="color:#999;">系统账号</span>'}
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// 创建用户
+document.getElementById('createUserForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const username = document.getElementById('newUsername').value;
+    const password = document.getElementById('newPassword').value;
+
+    // 获取选中的权限
+    const checkboxes = document.querySelectorAll('#permissionsContainer input[type="checkbox"]:checked');
+    const permissions = Array.from(checkboxes).map(cb => cb.value);
+
+    try {
+        const response = await fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password, permissions })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showAlert('用户创建成功！', 'success');
+            document.getElementById('createUserForm').reset();
+            // 重新勾选所有权限（默认）
+            renderPermissionCheckboxes('permissionsContainer', allPermissions.map(p => p.value));
+            await loadUsers();
+        } else {
+            showAlert(data.message, 'error');
+        }
+    } catch (error) {
+        showAlert('创建失败', 'error');
+    }
+});
+
+// 打开编辑权限模态框
+function openEditModal(username) {
+    const user = allUsers.find(u => u.username === username);
+    if (!user) return;
+
+    editingUser = username;
+    document.getElementById('editUsername').textContent = username;
+    renderPermissionCheckboxes('editPermissionsContainer', user.permissions);
+    document.getElementById('editPermissionsModal').classList.add('active');
+}
+
+// 关闭编辑权限模态框
+function closeEditModal() {
+    document.getElementById('editPermissionsModal').classList.remove('active');
+    editingUser = null;
+}
+
+// 保存权限
+async function savePermissions() {
+    if (!editingUser) return;
+
+    const checkboxes = document.querySelectorAll('#editPermissionsContainer input[type="checkbox"]:checked');
+    const permissions = Array.from(checkboxes).map(cb => cb.value);
+
+    try {
+        const response = await fetch(`/api/users/${editingUser}/permissions`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ permissions })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showAlert('权限更新成功！', 'success');
+            closeEditModal();
+            await loadUsers();
+        } else {
+            showAlert(data.message, 'error');
+        }
+    } catch (error) {
+        showAlert('更新失败', 'error');
+    }
+}
+
+// 打开修改密码模态框
+function openPasswordModal(username) {
+    changingPasswordUser = username;
+    document.getElementById('passwordUsername').textContent = username;
+    document.getElementById('newUserPassword').value = '';
+    document.getElementById('changePasswordModal').classList.add('active');
+}
+
+// 关闭修改密码模态框
+function closePasswordModal() {
+    document.getElementById('changePasswordModal').classList.remove('active');
+    changingPasswordUser = null;
+}
+
+// 保存密码
+async function savePassword() {
+    if (!changingPasswordUser) return;
+
+    const newPassword = document.getElementById('newUserPassword').value;
+
+    if (!newPassword || newPassword.length < 4) {
+        showAlert('密码至少需要4个字符', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/users/${changingPasswordUser}/password`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ new_password: newPassword })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showAlert('密码修改成功！', 'success');
+            closePasswordModal();
+        } else {
+            showAlert(data.message, 'error');
+        }
+    } catch (error) {
+        showAlert('修改失败', 'error');
+    }
+}
+
+// 删除用户
+async function deleteUser(username) {
+    if (!confirm(`确定要删除用户 "${username}" 吗？`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/users/${username}`, {
+            method: 'DELETE'
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showAlert('用户删除成功！', 'success');
+            await loadUsers();
+        } else {
+            showAlert(data.message, 'error');
+        }
+    } catch (error) {
+        showAlert('删除失败', 'error');
+    }
+}
+
+// 点击模态框外部关闭
+window.onclick = function(event) {
+    if (event.target.classList.contains('modal')) {
+        event.target.classList.remove('active');
+    }
+}
+
+// 初始化页面
+init();
+</script>
+{% endblock %}

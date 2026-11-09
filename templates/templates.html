@@ -1,0 +1,1020 @@
+{% extends "base.html" %}
+
+{% block title %}模板管理 - 政务审批区块链系统{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- 头部 -->
+    <div class="header">
+        <div class="logo">
+            <div class="logo-icon">🏛️</div>
+            <div class="logo-text">
+                <h1>模板管理</h1>
+                <p>政务审批区块链系统</p>
+            </div>
+        </div>
+        <div class="user-section">
+            <div class="user-info">
+                <div class="username" id="currentUsername">加载中...</div>
+                <div class="role" id="currentRole">加载中...</div>
+            </div>
+            <a href="/" class="btn btn-secondary">返回首页</a>
+            <button class="btn btn-danger" onclick="logout()">登出</button>
+        </div>
+    </div>
+
+    <!-- 模板管理卡片 -->
+    <div class="card">
+        <h2 class="card-title">📝 我的模板</h2>
+        <div style="display:flex;gap:20px;margin-bottom:20px;">
+            <button class="btn btn-primary" onclick="showCreateModal()">新建模板</button>
+            <button class="btn btn-secondary" onclick="refreshTemplates()">刷新模板</button>
+        </div>
+        <div id="templatesList">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>模板名称</th>
+                        <th>字段数量</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="templatesTableBody">
+                    <tr>
+                        <td colspan="4" style="text-align:center;color:#999;">加载中...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 创建模板模态框 -->
+<div class="modal" id="createTemplateModal">
+    <div class="modal-content" style="max-width:1200px;height:80vh;">
+        <div class="modal-header">
+            <h3 class="modal-title">创建模板</h3>
+            <button class="modal-close" onclick="closeCreateModal()">&times;</button>
+        </div>
+        <div style="display:flex;height:calc(100% - 60px);">
+            <!-- 左侧：正文编辑区 -->
+            <div style="flex:1;border:2px solid #e0e0e0;border-radius:10px;padding:20px;background:#f8f9fa;overflow-y:auto;">
+                <div class="form-group">
+                    <label>模板名称</label>
+                    <input type="text" class="form-control" id="templateName" placeholder="请输入模板名称" required>
+                </div>
+                
+                <div style="margin-top:20px;">
+                    <h4 style="margin-bottom:15px;">📄 正文编辑</h4>
+                    <div style="display:flex;gap:10px;margin-bottom:15px;">
+                        <button class="btn btn-sm btn-primary" onclick="addParagraph()">添加段落</button>
+                        <button class="btn btn-sm btn-secondary" onclick="showPreview()">预览</button>
+                    </div>
+                    <div id="templateContent" style="min-height:300px;border:1px dashed #ccc;border-radius:5px;padding:15px;">
+                        <div style="text-align:center;color:#999;">点击"添加段落"开始编辑正文内容</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：组件库 -->
+            <div style="width:250px;border-left:2px solid #e0e0e0;padding:20px;background:#f5f5f5;overflow-y:auto;">
+                <h4 style="margin-bottom:20px;">🛠️ 组件库</h4>
+                
+                <!-- 文本框组件 -->
+                <div class="component-item" draggable="true" data-type="text">
+                    <div class="component-icon">📝</div>
+                    <div class="component-info">
+                        <div class="component-name">单行文本</div>
+                        <div class="component-desc">输入单行文本</div>
+                    </div>
+                </div>
+
+                <!-- 多行文本组件 -->
+                <div class="component-item" draggable="true" data-type="textarea">
+                    <div class="component-icon">📄</div>
+                    <div class="component-info">
+                        <div class="component-name">多行文本</div>
+                        <div class="component-desc">输入多行文本</div>
+                    </div>
+                </div>
+
+                <!-- 下拉框组件 -->
+                <div class="component-item" draggable="true" data-type="select">
+                    <div class="component-icon">▼</div>
+                    <div class="component-info">
+                        <div class="component-name">下拉选择</div>
+                        <div class="component-desc">从选项中选择</div>
+                    </div>
+                </div>
+
+                <!-- 列表框组件 -->
+                <div class="component-item" draggable="true" data-type="list">
+                    <div class="component-icon">📋</div>
+                    <div class="component-info">
+                        <div class="component-name">列表框</div>
+                        <div class="component-desc">可添加多行数据</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div style="margin-top:20px;text-align:right;">
+            <button class="btn btn-secondary" onclick="closeCreateModal()">取消</button>
+            <button class="btn btn-primary" onclick="saveTemplate()">保存模板</button>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑模板模态框 -->
+<div class="modal" id="editTemplateModal">
+    <div class="modal-content" style="max-width:1200px;height:80vh;">
+        <div class="modal-header">
+            <h3 class="modal-title">编辑模板</h3>
+            <button class="modal-close" onclick="closeEditModal()">&times;</button>
+        </div>
+        <div style="display:flex;height:calc(100% - 60px);">
+            <!-- 左侧：正文编辑区 -->
+            <div style="flex:1;border:2px solid #e0e0e0;border-radius:10px;padding:20px;background:#f8f9fa;overflow-y:auto;">
+                <div class="form-group">
+                    <label>模板名称</label>
+                    <input type="text" class="form-control" id="editTemplateName" placeholder="请输入模板名称" required>
+                </div>
+                
+                <div style="margin-top:20px;">
+                    <h4 style="margin-bottom:15px;">📄 正文编辑</h4>
+                    <div style="display:flex;gap:10px;margin-bottom:15px;">
+                        <button class="btn btn-sm btn-primary" onclick="addParagraph(true)">添加段落</button>
+                        <button class="btn btn-sm btn-secondary" onclick="showPreview(true)">预览</button>
+                    </div>
+                    <div id="editTemplateContent" style="min-height:300px;border:1px dashed #ccc;border-radius:5px;padding:15px;">
+                        <div style="text-align:center;color:#999;">加载中...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：组件库 -->
+            <div style="width:250px;border-left:2px solid #e0e0e0;padding:20px;background:#f5f5f5;overflow-y:auto;">
+                <h4 style="margin-bottom:20px;">🛠️ 组件库</h4>
+                
+                <!-- 文本框组件 -->
+                <div class="component-item" draggable="true" data-type="text">
+                    <div class="component-icon">📝</div>
+                    <div class="component-info">
+                        <div class="component-name">单行文本</div>
+                        <div class="component-desc">输入单行文本</div>
+                    </div>
+                </div>
+
+                <!-- 多行文本组件 -->
+                <div class="component-item" draggable="true" data-type="textarea">
+                    <div class="component-icon">📄</div>
+                    <div class="component-info">
+                        <div class="component-name">多行文本</div>
+                        <div class="component-desc">输入多行文本</div>
+                    </div>
+                </div>
+
+                <!-- 下拉框组件 -->
+                <div class="component-item" draggable="true" data-type="select">
+                    <div class="component-icon">▼</div>
+                    <div class="component-info">
+                        <div class="component-name">下拉选择</div>
+                        <div class="component-desc">从选项中选择</div>
+                    </div>
+                </div>
+
+                <!-- 列表框组件 -->
+                <div class="component-item" draggable="true" data-type="list">
+                    <div class="component-icon">📋</div>
+                    <div class="component-info">
+                        <div class="component-name">列表框</div>
+                        <div class="component-desc">可添加多行数据</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div style="margin-top:20px;text-align:right;">
+            <button class="btn btn-danger" onclick="deleteTemplate()">删除模板</button>
+            <button class="btn btn-secondary" onclick="closeEditModal()">取消</button>
+            <button class="btn btn-primary" onclick="updateTemplate()">保存修改</button>
+        </div>
+    </div>
+</div>
+
+<!-- 预览模态框 -->
+<div class="modal" id="previewModal">
+    <div class="modal-content" style="max-width:800px;">
+        <div class="modal-header">
+            <h3 class="modal-title">模板预览</h3>
+            <button class="modal-close" onclick="closePreviewModal()">&times;</button>
+        </div>
+        <div id="previewContent" style="padding:20px;max-height:60vh;overflow-y:auto;">
+        </div>
+        <div style="margin-top:20px;text-align:right;">
+            <button class="btn btn-secondary" onclick="closePreviewModal()">关闭</button>
+        </div>
+    </div>
+</div>
+
+<!-- 组件编辑模态框 -->
+<div class="modal" id="componentEditModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">编辑组件</h3>
+            <button class="modal-close" onclick="closeComponentEditModal()">&times;</button>
+        </div>
+        <div>
+            <input type="hidden" id="currentComponentIndex">
+            <input type="hidden" id="currentComponentType">
+            <input type="hidden" id="isEditMode">
+            
+            <div class="form-group">
+                <label>字段名称</label>
+                <input type="text" class="form-control" id="componentLabel" placeholder="请输入字段名称" required>
+            </div>
+            
+            <div class="form-group">
+                <label>是否必填</label>
+                <select class="form-control" id="componentRequired">
+                    <option value="false">否</option>
+                    <option value="true">是</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>提示信息</label>
+                <input type="text" class="form-control" id="componentPlaceholder" placeholder="请输入提示信息（可选）">
+            </div>
+            
+            <!-- 下拉框选项设置 -->
+            <div class="form-group" id="selectOptionsGroup" style="display:none;">
+                <label>下拉选项（每行一个）</label>
+                <textarea class="form-control" id="componentOptions" rows="4" placeholder="选项1&#10;选项2&#10;选项3"></textarea>
+            </div>
+            
+            <!-- 列表框列设置 -->
+            <div class="form-group" id="listColumnsGroup" style="display:none;">
+                <label>列表列名（每行一个）</label>
+                <textarea class="form-control" id="componentColumns" rows="3" placeholder="列1&#10;列2&#10;列3"></textarea>
+            </div>
+        </div>
+        <div style="margin-top:20px;text-align:right;">
+            <button class="btn btn-danger" onclick="removeComponent()">删除组件</button>
+            <button class="btn btn-secondary" onclick="closeComponentEditModal()">取消</button>
+            <button class="btn btn-primary" onclick="saveComponent()">保存组件</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+    .component-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px;
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        cursor: move;
+        transition: all 0.2s;
+    }
+    
+    .component-item:hover {
+        background: #f0f8ff;
+        border-color: #4CAF50;
+        transform: translateY(-1px);
+    }
+    
+    .component-icon {
+        font-size: 24px;
+        width: 40px;
+        text-align: center;
+    }
+    
+    .component-info {
+        flex: 1;
+    }
+    
+    .component-name {
+        font-weight: bold;
+        color: #333;
+    }
+    
+    .component-desc {
+        font-size: 12px;
+        color: #666;
+        margin-top: 2px;
+    }
+    
+    .paragraph-item {
+        margin-bottom: 15px;
+        padding: 15px;
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        position: relative;
+    }
+    
+    .paragraph-textarea {
+        width: 100%;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 10px;
+        font-size: 14px;
+        min-height: 80px;
+        resize: vertical;
+        margin-bottom: 10px;
+    }
+    
+    .delete-paragraph-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #ff4d4f;
+        color: white;
+        border: none;
+        font-size: 12px;
+        line-height: 1;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+    }
+    
+    .delete-paragraph-btn:hover {
+        background: #ff7875;
+    }
+    
+    .component-placeholder {
+        display: inline-block;
+        padding: 8px 12px;
+        background: #e3f2fd;
+        border: 2px dashed #2196f3;
+        border-radius: 4px;
+        cursor: pointer;
+        margin: 0 5px;
+        color: #1976d2;
+        font-size: 12px;
+    }
+    
+    .component-placeholder:hover {
+        background: #bbdefb;
+    }
+    
+    .component-preview {
+        display: inline-block;
+        padding: 2px 6px;
+        background: white;
+        border: 1px solid #999;
+        border-radius: 2px;
+        margin: 0 2px;
+        color: #666;
+        font-size: 12px;
+        cursor: pointer;
+        min-width: 80px;
+        max-width: 200px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .component-preview:hover {
+        border-color: #4CAF50;
+        background: #f0f8ff;
+    }
+</style>
+<script>
+let currentUser = null;
+let templates = [];
+let currentTemplateId = null;
+let currentContent = [];
+let editingContent = [];
+
+// 组件类型映射
+const componentTypeMap = {
+    'text': '单行文本',
+    'textarea': '多行文本',
+    'select': '下拉选择',
+    'list': '列表框'
+};
+
+// 初始化
+async function init() {
+    currentUser = await checkAuth();
+    if (!currentUser) return;
+
+    // 显示用户信息
+    document.getElementById('currentUsername').textContent = currentUser.username;
+    document.getElementById('currentRole').textContent = 
+        currentUser.role === 'super_admin' ? '超级管理员' : '普通用户';
+
+    // 加载模板列表
+    await loadTemplates();
+    
+    // 初始化拖拽功能
+    initDragAndDrop();
+}
+
+// 初始化拖拽功能
+function initDragAndDrop() {
+    // 为所有组件添加拖拽开始事件
+    document.querySelectorAll('.component-item').forEach(component => {
+        component.addEventListener('dragstart', function(e) {
+            e.dataTransfer.setData('text/plain', this.dataset.type);
+            this.style.opacity = '0.5';
+        });
+        
+        component.addEventListener('dragend', function() {
+            this.style.opacity = '1';
+        });
+    });
+    
+    // 为所有段落添加拖拽事件
+    document.querySelectorAll('.paragraph-item').forEach((paragraph, index) => {
+        const isEdit = paragraph.closest('#editTemplateContent') !== null;
+        
+        paragraph.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.style.backgroundColor = '#e8f5e8';
+        });
+        
+        paragraph.addEventListener('dragleave', function(e) {
+            this.style.backgroundColor = 'white';
+        });
+        
+        paragraph.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.style.backgroundColor = 'white';
+            
+            const componentType = e.dataTransfer.getData('text/plain');
+            if (componentType) {
+                addComponentToParagraph(componentType, index, isEdit);
+            }
+        });
+    });
+}
+
+// 加载模板列表
+async function loadTemplates() {
+    try {
+        const response = await fetch('/api/templates');
+        const data = await response.json();
+
+        if (data.success) {
+            templates = data.templates;
+            renderTemplatesList();
+        }
+    } catch (error) {
+        console.error('加载模板失败:', error);
+        showAlert('加载模板失败', 'error');
+    }
+}
+
+// 渲染模板列表
+function renderTemplatesList() {
+    const tbody = document.getElementById('templatesTableBody');
+
+    if (templates.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;">暂无模板</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = templates.map(template => `
+        <tr>
+            <td>${template.name}</td>
+            <td>${template.fields.length}</td>
+            <td>${new Date(template.created_at).toLocaleString()}</td>
+            <td>
+                <button class="btn btn-primary" onclick="editTemplate('${template.id}')">编辑</button>
+                <button class="btn btn-danger" onclick="deleteTemplateConfirm('${template.id}')">删除</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// 刷新模板
+async function refreshTemplates() {
+    await loadTemplates();
+}
+
+// 显示创建模板模态框
+function showCreateModal() {
+    document.getElementById('templateName').value = '';
+    currentContent = [];
+    renderContentEditor('templateContent', currentContent);
+    document.getElementById('createTemplateModal').classList.add('active');
+    
+    // 确保组件和段落都渲染完成后初始化拖拽
+    setTimeout(() => {
+        initDragAndDrop();
+    }, 200);
+}
+
+// 关闭创建模板模态框
+function closeCreateModal() {
+    document.getElementById('createTemplateModal').classList.remove('active');
+}
+
+// 添加段落
+function addParagraph(isEdit = false) {
+    const content = isEdit ? editingContent : currentContent;
+    content.push({
+        type: 'paragraph',
+        text: '',
+        components: []
+    });
+    renderContentEditor(isEdit ? 'editTemplateContent' : 'templateContent', content);
+}
+
+
+
+// 添加组件到段落
+function addComponentToParagraph(type, paragraphIndex, isEdit = false) {
+    const content = isEdit ? editingContent : currentContent;
+    
+    if (paragraphIndex >= 0 && paragraphIndex< content.length) {
+        const component = {
+            id: `component_${Date.now()}`,
+            type: type,
+            label: `新${componentTypeMap[type]}`,
+            required: false,
+            placeholder: '',
+            options: type === 'select' ? [] : undefined,
+            columns: type === 'list' ? [] : undefined
+        };
+        
+        content[paragraphIndex].components.push(component);
+        
+        // 将组件占位符插入到段落文本中
+        const placeholder = `{${component.label}}`;
+        if (content[paragraphIndex].text) {
+            content[paragraphIndex].text += ' ' + placeholder;
+        } else {
+            content[paragraphIndex].text = placeholder;
+        }
+        
+        renderContentEditor(isEdit ? 'editTemplateContent' : 'templateContent', content);
+    }
+}
+
+// 渲染内容编辑器
+function renderContentEditor(containerId, content) {
+    const container = document.getElementById(containerId);
+    
+    if (content.length === 0) {
+        container.innerHTML = '<div style="text-align:center;color:#999;">点击"添加段落"开始编辑正文内容</div>';
+        return;
+    }
+    
+    container.innerHTML = content.map((paragraph, paraIndex) => {
+        const isEdit = containerId === 'editTemplateContent';
+        let displayText = paragraph.text;
+        let listHtml = '';
+        
+        paragraph.components.forEach((component, compIndex) => {
+            const placeholder = `{${component.label}}`;
+            
+            if (component.type === 'list') {
+                // 列表框组件显示为表格
+                listHtml += `<div class="template-field" style="display:block;margin:10px 0;">
+                    <label>${component.label}</label>
+                    <div class="template-list">
+                        <div class="template-list-header">
+                            ${(component.columns || ['列1', '列2']).map((col, colIndex) => `
+                                <div class="template-list-cell">
+                                    <input type="text" class="column-name-input" value="${col}" 
+                                        onblur="updateColumnName('${component.id}', ${colIndex}, this.value)"
+                                        style="width:100%;border:1px solid #ddd;border-radius:3px;padding:4px;font-size:12px;">
+                                </div>
+                            `).join('')}
+                            <div class="template-list-cell" style="width:120px;">操作</div>
+                        </div>
+                        <div class="template-list-row">
+                            ${(component.columns || ['列1', '列2']).map((col, colIndex) => `
+                                <div class="template-list-cell"><input type="text" name="${component.id}_row_0_col_${colIndex}" placeholder="请输入"></div>
+                            `).join('')}
+                            <div class="template-list-cell" style="width:120px;">
+                                <button class="btn btn-sm btn-danger" onclick="deleteListRow(this, '${component.id}')">删除</button>
+                            </div>
+                        </div>
+                        <div class="template-list-actions" style="display:flex;gap:10px;margin-top:10px;">
+                            <button class="btn btn-sm btn-primary" onclick="addListRow('${component.id}')">添加行</button>
+                            <button class="btn btn-sm btn-secondary" onclick="addListColumn('${component.id}')">添加列</button>
+                        </div>
+                    </div>
+                </div>`;
+                
+                // 替换占位符为空字符串
+                displayText = displayText.replace(new RegExp(placeholder, 'g'), '');
+            } else {
+                // 其他组件显示为占位符
+                displayText = displayText.replace(new RegExp(placeholder, 'g'), 
+                    `<span class="component-preview" data-para-index="${paraIndex}" data-comp-index="${compIndex}" data-is-edit="${isEdit}">${component.label}</span>`);
+            }
+        });
+        
+        return `
+            <div class="paragraph-item">
+                <button class="delete-paragraph-btn" onclick="removeParagraph(${paraIndex}, ${isEdit})">×</button>
+                <textarea class="paragraph-textarea" placeholder="请输入段落内容..." 
+                    onblur="updateParagraphText(${paraIndex}, this.value, ${isEdit})">${displayText}</textarea>
+                ${listHtml}
+            </div>
+        `;
+    }).join('');
+    
+    // 绑定事件监听器
+    bindParagraphEvents();
+}
+
+// 绑定段落事件
+function bindParagraphEvents() {
+    // 绑定组件预览点击事件
+    document.querySelectorAll('.component-preview').forEach(preview => {
+        preview.addEventListener('click', function() {
+            const paraIndex = parseInt(this.dataset.paraIndex);
+            const compIndex = parseInt(this.dataset.compIndex);
+            const isEdit = this.dataset.isEdit === 'true';
+            editComponent(paraIndex, compIndex, isEdit);
+        });
+    });
+    
+    // 重新初始化拖拽功能
+    initDragAndDrop();
+}
+
+// 更新段落文本
+function updateParagraphText(index, text, isEdit = false) {
+    const content = isEdit ? editingContent : currentContent;
+    if (index >= 0 && index < content.length) {
+        content[index].text = text;
+    }
+}
+
+// 删除段落
+function removeParagraph(index, isEdit = false) {
+    const content = isEdit ? editingContent : currentContent;
+    if (index >= 0 && index < content.length) {
+        content.splice(index, 1);
+        renderContentEditor(isEdit ? 'editTemplateContent' : 'templateContent', content);
+    }
+}
+
+// 编辑组件
+function editComponent(paraIndex, compIndex, isEdit = false) {
+    const content = isEdit ? editingContent : currentContent;
+    
+    if (paraIndex >= 0 && paraIndex < content.length && 
+        compIndex >= 0 && compIndex < content[paraIndex].components.length) {
+        
+        const component = content[paraIndex].components[compIndex];
+        
+        document.getElementById('currentComponentIndex').value = `${paraIndex},${compIndex}`;
+        document.getElementById('currentComponentType').value = component.type;
+        document.getElementById('isEditMode').value = String(isEdit);
+        document.getElementById('componentLabel').value = component.label;
+        document.getElementById('componentRequired').value = String(component.required);
+        document.getElementById('componentPlaceholder').value = component.placeholder || '';
+        
+        // 显示/隐藏特定设置
+        document.getElementById('selectOptionsGroup').style.display = component.type === 'select' ? 'block' : 'none';
+        document.getElementById('listColumnsGroup').style.display = component.type === 'list' ? 'block' : 'none';
+        
+        if (component.type === 'select') {
+            document.getElementById('componentOptions').value = (component.options || []).join('\n');
+        }
+        
+        if (component.type === 'list') {
+            document.getElementById('componentColumns').value = (component.columns || []).join('\n');
+        }
+        
+        document.getElementById('componentEditModal').classList.add('active');
+    }
+}
+
+// 关闭组件编辑模态框
+function closeComponentEditModal() {
+    document.getElementById('componentEditModal').classList.remove('active');
+}
+
+// 保存组件
+function saveComponent() {
+    const indexStr = document.getElementById('currentComponentIndex').value;
+    const [paraIndex, compIndex] = indexStr.split(',').map(Number);
+    const type = document.getElementById('currentComponentType').value;
+    const isEdit = document.getElementById('isEditMode').value === 'true';
+    const content = isEdit ? editingContent : currentContent;
+    
+    if (paraIndex >= 0 && paraIndex < content.length && 
+        compIndex >= 0 && compIndex < content[paraIndex].components.length) {
+        
+        const component = content[paraIndex].components[compIndex];
+        component.label = document.getElementById('componentLabel').value;
+        component.required = document.getElementById('componentRequired').value === 'true';
+        component.placeholder = document.getElementById('componentPlaceholder').value;
+        
+        if (type === 'select') {
+            component.options = document.getElementById('componentOptions').value.split('\n')
+                .map(opt => opt.trim()).filter(opt => opt);
+        }
+        
+        if (type === 'list') {
+            component.columns = document.getElementById('componentColumns').value.split('\n')
+                .map(col => col.trim()).filter(col => col);
+        }
+        
+        renderContentEditor(isEdit ? 'editTemplateContent' : 'templateContent', content);
+        closeComponentEditModal();
+    }
+}
+
+// 删除组件
+function removeComponent() {
+    const indexStr = document.getElementById('currentComponentIndex').value;
+    const [paraIndex, compIndex] = indexStr.split(',').map(Number);
+    const isEdit = document.getElementById('isEditMode').value === 'true';
+    const content = isEdit ? editingContent : currentContent;
+    
+    if (paraIndex >= 0 && paraIndex < content.length && 
+        compIndex >= 0 && compIndex < content[paraIndex].components.length) {
+        
+        content[paraIndex].components.splice(compIndex, 1);
+        renderContentEditor(isEdit ? 'editTemplateContent' : 'templateContent', content);
+        closeComponentEditModal();
+    }
+}
+
+// 保存模板
+async function saveTemplate() {
+    const name = document.getElementById('templateName').value.trim();
+    
+    if (!name) {
+        showAlert('模板名称不能为空', 'error');
+        return;
+    }
+    
+    if (currentContent.length === 0) {
+        showAlert('请至少添加一个段落', 'error');
+        return;
+    }
+    
+    // 提取所有组件
+    const fields = [];
+    currentContent.forEach(paragraph => {
+        paragraph.components.forEach(component => {
+            fields.push(component);
+        });
+    });
+    
+    try {
+        const response = await fetch('/api/templates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name,
+                fields: fields,
+                content: currentContent
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showAlert('模板创建成功！', 'success');
+            closeCreateModal();
+            await loadTemplates();
+        } else {
+            showAlert('创建失败: ' + data.message, 'error');
+        }
+    } catch (error) {
+        showAlert('创建失败', 'error');
+    }
+}
+
+// 编辑模板
+async function editTemplate(templateId) {
+    currentTemplateId = templateId;
+    
+    try {
+        const response = await fetch(`/api/templates/${templateId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const template = data.template;
+            document.getElementById('editTemplateName').value = template.name;
+            editingContent = template.content || [];
+            renderContentEditor('editTemplateContent', editingContent);
+            document.getElementById('editTemplateModal').classList.add('active');
+            
+            // 确保组件和段落都渲染完成后初始化拖拽
+            setTimeout(() => {
+                initDragAndDrop();
+            }, 200);
+        } else {
+            showAlert('加载模板失败: ' + data.message, 'error');
+        }
+    } catch (error) {
+        showAlert('加载模板失败', 'error');
+    }
+}
+
+// 关闭编辑模板模态框
+function closeEditModal() {
+    document.getElementById('editTemplateModal').classList.remove('active');
+    currentTemplateId = null;
+}
+
+// 更新模板
+async function updateTemplate() {
+    if (!currentTemplateId) return;
+    
+    const name = document.getElementById('editTemplateName').value.trim();
+    
+    if (!name) {
+        showAlert('模板名称不能为空', 'error');
+        return;
+    }
+    
+    if (editingContent.length === 0) {
+        showAlert('请至少添加一个段落', 'error');
+        return;
+    }
+    
+    // 提取所有组件
+    const fields = [];
+    editingContent.forEach(paragraph => {
+        paragraph.components.forEach(component => {
+            fields.push(component);
+        });
+    });
+    
+    try {
+        const response = await fetch(`/api/templates/${currentTemplateId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name,
+                fields: fields,
+                content: editingContent
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showAlert('模板更新成功！', 'success');
+            closeEditModal();
+            await loadTemplates();
+        } else {
+            showAlert('更新失败: ' + data.message, 'error');
+        }
+    } catch (error) {
+        showAlert('更新失败', 'error');
+    }
+}
+
+// 删除模板确认
+function deleteTemplateConfirm(templateId) {
+    if (confirm('确定要删除这个模板吗？')) {
+        deleteTemplateById(templateId);
+    }
+}
+
+// 删除模板
+async function deleteTemplate() {
+    if (!currentTemplateId) return;
+    
+    if (confirm('确定要删除这个模板吗？')) {
+        await deleteTemplateById(currentTemplateId);
+        closeEditModal();
+    }
+}
+
+// 删除模板（通过ID）
+async function deleteTemplateById(templateId) {
+    try {
+        const response = await fetch(`/api/templates/${templateId}`, {
+            method: 'DELETE'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showAlert('模板删除成功！', 'success');
+            await loadTemplates();
+        } else {
+            showAlert('删除失败: ' + data.message, 'error');
+        }
+    } catch (error) {
+        showAlert('删除失败', 'error');
+    }
+}
+
+// 显示预览
+function showPreview(isEdit = false) {
+    const content = isEdit ? editingContent : currentContent;
+    const previewContent = document.getElementById('previewContent');
+    
+    if (content.length === 0) {
+        previewContent.innerHTML = '<div style="text-align:center;color:#999;">暂无内容</div>';
+        document.getElementById('previewModal').classList.add('active');
+        return;
+    }
+    
+    let html = '';
+    content.forEach(paragraph => {
+        let displayText = paragraph.text;
+        paragraph.components.forEach(component => {
+            const placeholder = `{${component.label}}`;
+            let componentHtml = '';
+            
+            switch(component.type) {
+                case 'text':
+                    componentHtml = `<input type="text" style="display:inline-block;padding:2px 6px;border:1px solid #999;border-radius:2px;font-size:14px;min-width:80px;max-width:200px;margin:0 2px;" placeholder="${component.placeholder || component.label}">`;
+                    break;
+                case 'textarea':
+                    componentHtml = `<textarea style="width:300px;height:100px;padding:6px;border:1px solid #ccc;border-radius:4px;" placeholder="${component.placeholder || component.label}"></textarea>`;
+                    break;
+                case 'select':
+                    componentHtml = `<select style="width:200px;padding:6px;border:1px solid #ccc;border-radius:4px;">`;
+                    if (component.options && component.options.length > 0) {
+                        component.options.forEach(option => {
+                            componentHtml += `<option value="${option}">${option}</option>`;
+                        });
+                    } else {
+                        componentHtml += `<option value="">请选择</option>`;
+                    }
+                    componentHtml += `</select>`;
+                    break;
+                case 'list':
+                    componentHtml = `<div class="template-field" style="display:block;margin:10px 0;">`;
+                    componentHtml += `<label>${component.label}</label>`;
+                    componentHtml += `<div class="template-list">`;
+                    
+                    // 确保有默认列
+                    const columns = component.columns && component.columns.length > 0 ? component.columns : ['列1', '列2'];
+                    
+                    componentHtml += `<div class="template-list-header">`;
+                    columns.forEach((col, colIndex) => {
+                        componentHtml += `<div class="template-list-cell">
+                            <input type="text" class="column-name-input" value="${col}" 
+                                onblur="updateColumnName('${component.id}', ${colIndex}, this.value)"
+                                style="width:100%;border:1px solid #ddd;border-radius:3px;padding:4px;font-size:12px;">
+                        </div>`;
+                    });
+                    componentHtml += `<div class="template-list-cell" style="width:120px;">操作</div>`;
+                    componentHtml += `</div>`;
+                    
+                    // 添加默认行
+                    componentHtml += `<div class="template-list-row">`;
+                    columns.forEach((col, colIndex) => {
+                        componentHtml += `<div class="template-list-cell"><input type="text" name="${component.id}_row_0_col_${colIndex}" placeholder="请输入"></div>`;
+                    });
+                    componentHtml += `<div class="template-list-cell" style="width:120px;">
+                        <button class="btn btn-sm btn-danger" onclick="deleteListRow(this, '${component.id}')">删除</button>
+                    </div>`;
+                    componentHtml += `</div>`;
+                    
+                    componentHtml += `<div class="template-list-actions" style="display:flex;gap:10px;margin-top:10px;">`;
+                    componentHtml += `<button class="btn btn-sm btn-primary" onclick="addListRow('${component.id}')">添加行</button>`;
+                    componentHtml += `<button class="btn btn-sm btn-secondary" onclick="addListColumn('${component.id}')">添加列</button>`;
+                    componentHtml += `</div>`;
+                    
+                    componentHtml += `</div>`;
+                    componentHtml += `</div>`;
+                    break;
+            }
+            
+            displayText = displayText.replace(new RegExp(placeholder, 'g'), componentHtml);
+        });
+        
+        html += `<div style="margin-bottom:20px;line-height:1.6;">${displayText}</div>`;
+    });
+    
+    previewContent.innerHTML = html;
+    document.getElementById('previewModal').classList.add('active');
+}
+
+// 关闭预览模态框
+function closePreviewModal() {
+    document.getElementById('previewModal').classList.remove('active');
+}
+
+// 点击模态框外部关闭
+window.onclick = function(event) {
+    if (event.target.classList.contains('modal')) {
+        event.target.classList.remove('active');
+    }
+}
+
+// 初始化页面
+init();
+</script>
+{% endblock %}
